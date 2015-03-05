@@ -1,0 +1,24 @@
+.hide {
+    display: none;
+}
+
+#result {
+    position: fixed;
+    top: -100px;
+    left: 0px;
+    right: 0px;
+    color: #fff;
+    height: auto;
+    padding: 10px;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+    background-image: -webkit-linear-gradient(top, #0088cc, #0044cc);
+    transition: all 500ms ease-in-out;
+}
+
+#result a {
+    color: #fff;
+}
+
+#image_container {
+    display: none;
+}
