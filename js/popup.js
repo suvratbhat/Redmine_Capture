@@ -19,6 +19,8 @@ var image_container = document.getElementById('scrshot'),
     assignees       = {};
     categories      = {};
     targetVersions  = {};
+    selectedShape   = { selected : false, type : 'Rect'};
+    rectDims        = { 'medium' : { width : 90 , height : 20},'small': { width : 40 , height : 10} };
 chrome.tabs.getSelected(null, function(tab) {
     tab_url   = tab.url;
     tab_title = tab.title;
@@ -274,7 +276,8 @@ jQuery(document).ready(function() {
                             },2000);*/
 
         });
-
+    jQuery('#done').show();
+    jQuery('#palette').show();
    /* jQuery('#highlightrect').bind('click',function(){
         addRectHighlight();
     })*/
@@ -289,6 +292,66 @@ jQuery(document).ready(function() {
       // jQuery("#scrshot").attr('src',dataUrl);
         jQuery('.canvas-container').remove();
      });
+
+    jQuery('#Text').bind('click',function(event){
+        jQuery('#annotationText').show();
+        selectedShape.selected=true;
+        selectedShape.type="Text";
+
+    });
+    jQuery('#Rect').bind('click',function(event){
+        //jQuery('#annotationText').show();
+        jQuery('#rectShapePicker').show();
+        selectedShape.selected=true;
+        selectedShape.type="Rect";
+
+    });
+    jQuery('#mediumRect').bind('click',function(event){
+        selectedShape.selected=true;
+        selectedShape.type="mediumRect";
+        jQuery('#mediumRect').css('background-color', '#e9322d');
+        jQuery('#smallRect').css('background-color','#FFFFFF');
+    });
+    jQuery('#smallRect').bind('click',function(event){
+        selectedShape.selected=true;
+        selectedShape.type="smallRect";
+        jQuery('#smallRect').css('background-color' , '#e9322d');
+        jQuery('#mediumRect').css('background-color',  '#FFFFFF');
+    });
+    jQuery('#annotationText').on("keypress",function(){
+      console.log(this.value);
+    });
+    jQuery('#myCanvas').on("click",function(event){
+        console.log(event.pageX + ":" + event.pageY);
+        var totalOffsetX = 0;
+        var totalOffsetY = 0;
+        var currentElement = this;
+            totalOffsetX += currentElement.offsetLeft - currentElement.scrollLeft;
+            totalOffsetY += currentElement.offsetTop - currentElement.scrollTop;
+
+        canvasX = event.pageX - totalOffsetX;
+        canvasY = event.pageY - totalOffsetY;
+       if(selectedShape.selected) {
+           var ctx = this.getContext("2d");
+           if (selectedShape.type == "Text") {
+               ctx.font = "12px Arial";
+               ctx.fillStyle="Red";
+               addRectHighlight(ctx,canvasX-10,canvasY-10,rectDims.medium.width,rectDims.medium.height);
+               ctx.fillText(jQuery('#annotationText').val(), canvasX, canvasY);
+           }
+           else if(selectedShape.type == 'smallRect'){
+               //ctx.fillStyle = "#FF0000";
+               addRectHighlight(ctx,canvasX,canvasY,rectDims.small.width,rectDims.small.height);
+           }
+           else if(selectedShape.type == 'mediumRect'){
+               //ctx.fillStyle = "#FF0000";
+               addRectHighlight(ctx,canvasX,canvasY,rectDims.medium.width,rectDims.medium.height);
+           }
+       }
+
+    });
+
+
     //});
 });
 
@@ -312,13 +375,13 @@ function dataURItoBlob(dataURI) {
     return new Blob([ia], {type:mimeString});
 }
 function createCanvas(imgUrl){
-    jQuery('#done').before('<canvas id="myCanvas"></canvas>');
-    jQuery('#myCanvas').attr('width',1000);
-    jQuery('#myCanvas').attr('height',800);
-    jQuery('#myCanvas').css('border','7px solid #d3d3d3');
+   // jQuery('#done').before('<canvas id="myCanvas"></canvas>');
+    //jQuery('#myCanvas').attr('width',1000);
+    //jQuery('#myCanvas').attr('height',800);
+    //jQuery('#myCanvas').css('border','7px solid #d3d3d3');
     //var imgElement= document.getElementById('scrshot');
-    var canvas1 = new fabric.Canvas('myCanvas',{ isDrawingMode: true });
-    canvas1.freeDrawingBrush.color='rgb(239,1,1)';
+   // var canvas1 = new fabric.Canvas('myCanvas',{ isDrawingMode: true });
+    //canvas1.freeDrawingBrush.color='rgb(239,1,1)';
    /* var imgInstance = new fabric.Image(imgElement, {
        left: 10,
        top: 10
@@ -326,16 +389,26 @@ function createCanvas(imgUrl){
 
     });
     canvas1.add(imgInstance);*/
+    jQuery('#myCanvas').show();
+    var canvas = document.getElementById('myCanvas');
+    var context = canvas.getContext('2d');
+    var imageObj = new Image();
 
-    fabric.Image.fromURL(imgUrl, function(oImg) {
+    imageObj.onload = function() {
+        context.drawImage(imageObj, 69, 50);
+    };
+    imageObj.src = imgUrl;
+
+    /*fabric.Image.fromURL(imgUrl, function(oImg) {
         canvas1.add(oImg);
-    });
+    });*/
     /*canvas.on('mouse:down', function(options) {
         console.log(options.e.clientX, options.e.clientY);
         clicked.x = options.e.clientX;
         clicked.y = options.e.clientY;
     });*/
-    jQuery('#myCanvas').show();
+  //  jQuery('#myCanvas').show();
+
 }
 document.getElementById("form").onsubmit = function() {
     var subject = document.getElementById("subject").value,
