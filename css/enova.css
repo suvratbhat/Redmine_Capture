@@ -22,3 +22,9 @@
 #image_container {
     display: none;
 }
+
+.resizer{
+    background: url('resize-small.png');
+    background-repeat: no-repeat;
+   /* background-size: contain;*/
+}

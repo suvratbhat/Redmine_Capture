@@ -21,6 +21,14 @@ var image_container = document.getElementById('scrshot'),
     targetVersions  = {};
     selectedShape   = { selected : false, type : 'Rect'};
     rectDims        = { 'medium' : { width : 90 , height : 20},'small': { width : 40 , height : 10} };
+    addedShapes         = [];
+    shapeUnderResize = {};
+    shapeNotUnderResize = [];
+    shapeToRemove = {};
+    shapesNotRemove = [];
+    isResizing = false;
+    isPressHold = false;
+    isRemover = false;
 chrome.tabs.getSelected(null, function(tab) {
     tab_url   = tab.url;
     tab_title = tab.title;
@@ -198,6 +206,38 @@ jQuery(document).ready(function() {
         });
     });
 
+    jQuery.ajax({
+        type: 'get',
+        url: redmine_url + '/custom_fields.json'
+    }).done(function(response){
+            if(response.custom_fields.length > 0) {
+                    var testphase = response.custom_fields[0];
+                    var resolution = response.custom_fields[1];
+                    for(var i = 0; i<testphase.possible_values.length ; i++){
+                        var option = document.createElement('option');
+
+                        option.text = testphase.possible_values[i].value;
+                        option.value = option.text;
+                        if(option.text == 'System Test'){
+                            option.selected = true;
+                        }
+                        jQuery('#testphase').append(option);
+                    }
+                    for(var j = 0; j<resolution.possible_values.length ; j++){
+                        var option = document.createElement('option');
+
+                        option.text = resolution.possible_values[j].value;
+                        option.value = option.text;
+                        if(option.text == 'UnResolved'){
+                            option.selected = true;
+                        }
+                        jQuery('#resolution').append(option);
+                    }
+
+            }
+            //jQuery('#priority').append(option);
+    });
+
     jQuery('#update').bind("click",function(data) {
         clean_form();
         var bugId = jQuery('#issue').val();
@@ -285,10 +325,15 @@ jQuery(document).ready(function() {
       // addRectHighlight();
         var canvas1 = document.getElementById('myCanvas');
         var context = canvas1.getContext('2d');
+
+        var canvas2 = document.getElementById('myCanvas1');
+        var context1 = canvas2.getContext('2d');
+        context.drawImage(canvas2,0,0);
         var dataUrl = canvas1.toDataURL();
         image_data = dataURItoBlob(dataUrl);
         jQuery('#image_container').append('<img src="'+dataUrl+'"/>');
         context.clearRect(0, 0, canvas1.width, canvas1.height);
+        context1.clearRect(0, 0, canvas2.width, canvas2.height);
       // jQuery("#scrshot").attr('src',dataUrl);
         jQuery('.canvas-container').remove();
      });
@@ -321,8 +366,150 @@ jQuery(document).ready(function() {
     jQuery('#annotationText').on("keypress",function(){
       console.log(this.value);
     });
-    jQuery('#myCanvas').on("click",function(event){
-        console.log(event.pageX + ":" + event.pageY);
+
+    function isResizerClicked(x,y){
+        shapeNotUnderResize.splice(0,shapeNotUnderResize.length);
+        for(i=0; i < addedShapes.length ; i++){
+            var shape = addedShapes[i];
+            if((x == shape.resizerX || (x > shape.resizerX && x < (shape.resizerX+7))) && (y == shape.resizerY || (y > shape.resizerY && y < (shape.resizerY+7)))){
+                shapeUnderResize = shape;
+                console.log("resizer clicked");
+                isResizing=true;
+                return;
+            }
+            else{
+                shapeNotUnderResize.push(shape);
+            }
+
+        }
+    }
+
+
+    function isShapeClicked(x,y){
+        shapesNotRemove.splice(0,shapesNotRemove.length);
+        for(i=0; i < addedShapes.length ; i++){
+            var shape = addedShapes[i];
+            if((x == shape.rectX || (x > shape.rectX && x < (shape.rectX+shape.width))) && (y == shape.rectY || (y > shape.rectY && y < (shape.rectY+shape.height)))){
+                shapeToRemove = shape;
+                console.log("for removal clicked");
+                isRemover = true;
+            }
+            else{
+                shapesNotRemove.push(shape);
+            }
+
+        }
+    }
+
+    jQuery('#myCanvas1').on("mousemove",function(event){
+        console.log("This is mousemove--iresixing "+isResizing);
+        if(isResizing) {
+            console.log('inside mousemove');
+            var nowOffsetX = 0;
+            var nowOffsetY = 0;
+            nowOffsetX += this.offsetLeft - this.scrollLeft;
+            nowOffsetY += this.offsetTop - this.scrollTop;
+
+            canvasXnow = event.pageX - nowOffsetX;
+            canvasYnow = event.pageY - nowOffsetY;
+            var ctx = this.getContext("2d");
+            // clearRectHighlight(ctx,shapeUnderResize.rectX,shapeUnderResize.rectY,shapeUnderResize.width,shapeUnderResize.height);
+           // console.log("clearing rect at " + shapeUnderResize.rectX + ":" + shapeUnderResize.rectY + " of width " + shapeUnderResize.width + " and height " + shapeUnderResize.height);
+            ctx.clearRect(0, 0, 1000, 800);
+           // ctx.clearRect(shapeUnderResize.rectX, shapeUnderResize.rectY, 1000, 800);
+            addRectHighlight(ctx, canvasXnow, canvasYnow, shapeUnderResize.width + 5, shapeUnderResize.height + 5);
+            fillRectHighlight(ctx,canvasXnow-7,canvasYnow-7,7,7);
+            addedShapes.splice(0,addedShapes.length);
+            var shapeResized = {};
+            if(canvasXnow < shapeUnderResize.rectX || canvasYnow > shapeUnderResize.rectY ){
+                shapeResized = {'rectX' : canvasXnow,'rectY' : canvasYnow,'width' : shapeUnderResize.width + 5,'height' : shapeUnderResize.height + 5,'resizerX' : canvasXnow-7,'resizerY' : canvasYnow-7,'text' : ''};
+            }
+            else{
+                shapeResized = {'rectX' : canvasXnow,'rectY' : canvasYnow,'width' : shapeUnderResize.width - 5,'height' : shapeUnderResize.height - 5,'resizerX' : canvasXnow-7,'resizerY' : canvasYnow-7,'text' : ''};
+            }
+            addedShapes.push(shapeResized);
+            shapeUnderResize = shapeResized;
+            for(i=0;i<shapeNotUnderResize.length;i++){
+                var shape = shapeNotUnderResize[i];
+                if(shape.text == '') {
+                    addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
+                    fillRectHighlight(ctx, shape.resizerX, shape.resizerY, 7, 7);
+                    addedShapes.push({
+                        'rectX': shape.rectX,
+                        'rectY': shape.rectY,
+                        'width': shape.width,
+                        'height': shape.height,
+                        'resizerX': shape.resizerX,
+                        'resizerY': shape.resizerY,
+                        text: ''
+                    });
+                }
+                else{
+                    addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
+                    ctx.fillText(shape.text, shape.rectX+12, shape.rectY+12);
+                }
+            }
+        }
+    });
+    jQuery('#myCanvas1').on("mouseup",function(event){
+        console.log("This is mouseup");
+        if(isResizing) {
+            isResizing = false;
+        }
+        else{
+            isPressHold = false;
+        }
+    });
+
+    jQuery('#myCanvas1').on("mousedown",function(event){
+        console.log("This is mouse down");
+        isPressHold = true;
+        var totalOffsetX = 0;
+        var totalOffsetY = 0;
+        var currentElement = this;
+        totalOffsetX += currentElement.offsetLeft - currentElement.scrollLeft;
+        totalOffsetY += currentElement.offsetTop - currentElement.scrollTop;
+
+        canvasX = event.pageX - totalOffsetX;
+        canvasY = event.pageY - totalOffsetY;
+        console.log(canvasX + ":" + canvasY);
+        isResizerClicked(canvasX,canvasY);
+        if(!isResizing) {
+                if(event.button == 2){
+                    isShapeClicked(canvasX,canvasY);
+                    console.log("right click for remove? "+isRemover);
+                    if(isRemover) {
+                        addedShapes.splice(0, addedShapes.length);
+                        var ctx = currentElement.getContext("2d");
+                        ctx.clearRect(0, 0, 1000, 800);
+                        for(i=0;i<shapesNotRemove.length;i++){
+                            var shape = shapesNotRemove[i];
+                            if(shape.text == '') {
+                                addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
+                                fillRectHighlight(ctx, shape.resizerX, shape.resizerY, 7, 7);
+                                addedShapes.push({
+                                    'rectX': shape.rectX,
+                                    'rectY': shape.rectY,
+                                    'width': shape.width,
+                                    'height': shape.height,
+                                    'resizerX': shape.resizerX,
+                                    'resizerY': shape.resizerY,
+                                    'text': shape.text
+                                });
+                            }
+                            else{
+                                addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
+                                ctx.fillText(shape.text, shape.rectX+12, shape.rectY+12);
+
+                            }
+                        }
+                    }
+                }
+
+        }
+    });
+
+    jQuery('#myCanvas1').on("click",function(event){
         var totalOffsetX = 0;
         var totalOffsetY = 0;
         var currentElement = this;
@@ -331,21 +518,36 @@ jQuery(document).ready(function() {
 
         canvasX = event.pageX - totalOffsetX;
         canvasY = event.pageY - totalOffsetY;
+        console.log(canvasX + ":" + canvasY);
+        //isResizerClicked(canvasX,canvasY);
+
+
        if(selectedShape.selected) {
            var ctx = this.getContext("2d");
            if (selectedShape.type == "Text") {
                ctx.font = "12px Arial";
                ctx.fillStyle="Red";
-               addRectHighlight(ctx,canvasX-10,canvasY-10,rectDims.medium.width,rectDims.medium.height);
-               ctx.fillText(jQuery('#annotationText').val(), canvasX, canvasY);
+               var textTyped = jQuery('#annotationText').val();
+               addRectHighlight(ctx,canvasX-12,canvasY-12,(textTyped.length * 10),rectDims.medium.height);
+
+               ctx.fillText(textTyped, canvasX, canvasY);
+               addedShapes.push({'rectX' : canvasX-12,'rectY' : canvasY-12,'width' : (textTyped.length * 10),'height' : rectDims.medium.height,'resizerX' : canvasX-7,'resizerY' : canvasY-7,'text' : textTyped});
+               selectedShape.selected=false;
            }
            else if(selectedShape.type == 'smallRect'){
                //ctx.fillStyle = "#FF0000";
                addRectHighlight(ctx,canvasX,canvasY,rectDims.small.width,rectDims.small.height);
+
+               fillRectHighlight(ctx,canvasX-7,canvasY-7,7,7);
+               addedShapes.push({'rectX' : canvasX,'rectY' : canvasY,'width' : rectDims.small.width,'height' : rectDims.small.height,'resizerX' : canvasX-7,'resizerY' : canvasY-7,'text' : ''});
+               selectedShape.selected=false;
            }
            else if(selectedShape.type == 'mediumRect'){
                //ctx.fillStyle = "#FF0000";
                addRectHighlight(ctx,canvasX,canvasY,rectDims.medium.width,rectDims.medium.height);
+               fillRectHighlight(ctx,canvasX-7,canvasY-7,7,7);
+               addedShapes.push({'rectX' : canvasX,'rectY' : canvasY,'width' : rectDims.medium.width,'height' : rectDims.medium.height,'resizerX' : canvasX-7,'resizerY' : canvasY-7,'text' : ''});
+               selectedShape.selected=false;
            }
        }
 
@@ -390,12 +592,13 @@ function createCanvas(imgUrl){
     });
     canvas1.add(imgInstance);*/
     jQuery('#myCanvas').show();
+    jQuery('#myCanvas1').show();
     var canvas = document.getElementById('myCanvas');
     var context = canvas.getContext('2d');
     var imageObj = new Image();
 
     imageObj.onload = function() {
-        context.drawImage(imageObj, 69, 50);
+        context.drawImage(imageObj, 0, 0,1000,600);
     };
     imageObj.src = imgUrl;
 
@@ -438,6 +641,16 @@ document.getElementById("form").onsubmit = function() {
             'fixed_version_id': escape(document.getElementById('version').value),
             'custom_fields': [
                 {
+                    'id'   : 1,
+                    'name' : 'Test Phase',
+                    'value': [document.getElementById('testphase').value]
+                },
+                {
+                    'id'   : 2,
+                    'name' : 'Resolution',
+                    'value': [document.getElementById('resolution').value]
+                },
+                {
                     'id'   : 3,
                     'value': document.getElementById('process').value
                 },
@@ -460,6 +673,18 @@ document.getElementById("form").onsubmit = function() {
             'category_id': escape(document.getElementById('category').value),
             'assigned_to_id': escape(document.getElementById('asign').value),
             'fixed_version_id': escape(document.getElementById('version').value),
+            'custom_fields': [
+                {
+                    'id'   : 1,
+                    'name' : 'Test Phase',
+                    'value': [document.getElementById('testphase').value]
+                },
+                {
+                    'id'   : 2,
+                    'name' : 'Resolution',
+                    'value': [document.getElementById('resolution').value]
+                }
+            ]
 
         }
     }
@@ -614,7 +839,8 @@ function clean_form() {
     jQuery('#version') .val(jQuery('#version option') .first().attr('value'));
     jQuery('#category').val(jQuery('#category option').first().attr('value'));
     jQuery('#priority').val(jQuery('#priority option').first().attr('value'));
-
+    jQuery('#testphase').val(jQuery('#testphase option').first().attr('value'));
+    jQuery('#resolution').val(jQuery('#resolution option').first().attr('value'));
     jQuery('#url_problema').val('');
     jQuery('#subject')     .val('');
     jQuery('#process')     .val('');
@@ -684,6 +910,23 @@ function populate_response() {
         /*jQuery('#scrshot').attr('src', issue.attachments[0].content_url).load(function(){
             console.log('load image');
         })*/
+    }
+
+    if(fetchedIssue.custom_fields != undefined && fetchedIssue.custom_fields.length > 0) {
+        for(i=0 ;i<fetchedIssue.custom_fields.length;i++){
+            var customField = fetchedIssue.custom_fields[i];
+            if(customField.id == 1){
+                if(customField.value.length > 0) {
+                    jQuery('#testphase option[value="' + customField.value[0] + '"]').attr('selected', 'selected');
+                }
+            }
+            else if(customField.id == 2){
+                if(customField.value.length > 0) {
+
+                    jQuery('#resolution option[value="' + customField.value[0] + '"]').attr('selected', 'selected');
+                }
+            }
+        }
     }
     jQuery('#image_container').children('img').each(function(){
         console.log(this);
