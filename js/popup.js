@@ -27,6 +27,9 @@ var image_container = document.getElementById('scrshot'),
     shapeToRemove = {};
     shapesNotRemove = [];
     isResizing = false;
+    pencilled = {};
+    pencilLines = {};
+    pencilLineCount = 0;
     isPressHold = false;
     isRemover = false;
 chrome.tabs.getSelected(null, function(tab) {
@@ -337,7 +340,11 @@ jQuery(document).ready(function() {
       // jQuery("#scrshot").attr('src',dataUrl);
         jQuery('.canvas-container').remove();
      });
+    jQuery('#pencilpicker').bind('click',function(event){
+        selectedShape.selected=true;
+        selectedShape.type="Pencil";
 
+    });
     jQuery('#Text').bind('click',function(event){
         jQuery('#annotationText').show();
         selectedShape.selected=true;
@@ -402,9 +409,7 @@ jQuery(document).ready(function() {
     }
 
     jQuery('#myCanvas1').on("mousemove",function(event){
-        console.log("This is mousemove--iresixing "+isResizing);
-        if(isResizing) {
-            console.log('inside mousemove');
+        console.log("This is mousemove");
             var nowOffsetX = 0;
             var nowOffsetY = 0;
             nowOffsetX += this.offsetLeft - this.scrollLeft;
@@ -413,25 +418,57 @@ jQuery(document).ready(function() {
             canvasXnow = event.pageX - nowOffsetX;
             canvasYnow = event.pageY - nowOffsetY;
             var ctx = this.getContext("2d");
+        if(isPressHold && selectedShape.type=='Pencil'){
+
+                    ctx.strokeStyle = "Red";
+                    ctx.moveTo(pencilled.rectX,pencilled.rectY);
+                    ctx.lineTo(canvasXnow,canvasYnow);
+                    ctx.stroke();
+
+                    var movedPencil = {};
+                    movedPencil.rectX = canvasXnow;
+                    movedPencil.rectY = canvasYnow;
+                    pencilLines[pencilLineCount].push(movedPencil);
+                    pencilled.rectX = canvasXnow;
+                    pencilled.rectY = canvasYnow;
+
+        }
+        if(isResizing) {
             // clearRectHighlight(ctx,shapeUnderResize.rectX,shapeUnderResize.rectY,shapeUnderResize.width,shapeUnderResize.height);
-           // console.log("clearing rect at " + shapeUnderResize.rectX + ":" + shapeUnderResize.rectY + " of width " + shapeUnderResize.width + " and height " + shapeUnderResize.height);
+            // console.log("clearing rect at " + shapeUnderResize.rectX + ":" + shapeUnderResize.rectY + " of width " + shapeUnderResize.width + " and height " + shapeUnderResize.height);
             ctx.clearRect(0, 0, 1000, 800);
-           // ctx.clearRect(shapeUnderResize.rectX, shapeUnderResize.rectY, 1000, 800);
+            // ctx.clearRect(shapeUnderResize.rectX, shapeUnderResize.rectY, 1000, 800);
             addRectHighlight(ctx, canvasXnow, canvasYnow, shapeUnderResize.width + 5, shapeUnderResize.height + 5);
-            fillRectHighlight(ctx,canvasXnow-7,canvasYnow-7,7,7);
-            addedShapes.splice(0,addedShapes.length);
+            fillRectHighlight(ctx, canvasXnow - 7, canvasYnow - 7, 7, 7);
+            addedShapes.splice(0, addedShapes.length);
             var shapeResized = {};
-            if(canvasXnow < shapeUnderResize.rectX || canvasYnow > shapeUnderResize.rectY ){
-                shapeResized = {'rectX' : canvasXnow,'rectY' : canvasYnow,'width' : shapeUnderResize.width + 5,'height' : shapeUnderResize.height + 5,'resizerX' : canvasXnow-7,'resizerY' : canvasYnow-7,'text' : ''};
+            if (canvasXnow < shapeUnderResize.rectX || canvasYnow > shapeUnderResize.rectY) {
+                shapeResized = {
+                    'rectX': canvasXnow,
+                    'rectY': canvasYnow,
+                    'width': shapeUnderResize.width + 5,
+                    'height': shapeUnderResize.height + 5,
+                    'resizerX': canvasXnow - 7,
+                    'resizerY': canvasYnow - 7,
+                    'text': ''
+                };
             }
-            else{
-                shapeResized = {'rectX' : canvasXnow,'rectY' : canvasYnow,'width' : shapeUnderResize.width - 5,'height' : shapeUnderResize.height - 5,'resizerX' : canvasXnow-7,'resizerY' : canvasYnow-7,'text' : ''};
+            else {
+                shapeResized = {
+                    'rectX': canvasXnow,
+                    'rectY': canvasYnow,
+                    'width': shapeUnderResize.width - 5,
+                    'height': shapeUnderResize.height - 5,
+                    'resizerX': canvasXnow - 7,
+                    'resizerY': canvasYnow - 7,
+                    'text': ''
+                };
             }
             addedShapes.push(shapeResized);
             shapeUnderResize = shapeResized;
-            for(i=0;i<shapeNotUnderResize.length;i++){
+            for (i = 0; i < shapeNotUnderResize.length; i++) {
                 var shape = shapeNotUnderResize[i];
-                if(shape.text == '') {
+                if (shape.text == '') {
                     addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
                     fillRectHighlight(ctx, shape.resizerX, shape.resizerY, 7, 7);
                     addedShapes.push({
@@ -444,11 +481,28 @@ jQuery(document).ready(function() {
                         text: ''
                     });
                 }
-                else{
+                else {
                     addRectHighlight(ctx, shape.rectX, shape.rectY, shape.width, shape.height);
-                    ctx.fillText(shape.text, shape.rectX+12, shape.rectY+12);
+                    ctx.fillText(shape.text, shape.rectX + 12, shape.rectY + 12);
                 }
             }
+            jQuery.each(pencilLines, function (prop, val) {
+                ctx.beginPath();
+                for (j = 1; j < val.length; j++) {
+                    var obj = val[j];
+                    var nextObj = val[j+1];
+                    if (nextObj != undefined) {
+
+                        ctx.strokeStyle = "Red";
+                        ctx.moveTo(obj.rectX, obj.rectY);
+
+                        ctx.lineTo(nextObj.rectX, nextObj.rectY);
+                        ctx.stroke();
+
+                    }
+                }
+                ctx.closePath();
+            });
         }
     });
     jQuery('#myCanvas1').on("mouseup",function(event){
@@ -458,12 +512,19 @@ jQuery(document).ready(function() {
         }
         else{
             isPressHold = false;
+            pencilled={};
+            if(selectedShape.type == 'Pencil') {
+                pencilLineCount++;
+                selectedShape={};
+                var ctx = this.getContext("2d");
+                ctx.closePath();
+            }
         }
     });
 
     jQuery('#myCanvas1').on("mousedown",function(event){
         console.log("This is mouse down");
-        isPressHold = true;
+
         var totalOffsetX = 0;
         var totalOffsetY = 0;
         var currentElement = this;
@@ -473,6 +534,16 @@ jQuery(document).ready(function() {
         canvasX = event.pageX - totalOffsetX;
         canvasY = event.pageY - totalOffsetY;
         console.log(canvasX + ":" + canvasY);
+        if(selectedShape.type == 'Pencil') {
+            isPressHold = true;
+            pencilled = {'rectX' : canvasX,'rectY' : canvasY,'width' : rectDims.small.width,'height' : rectDims.small.height,'resizerX' : canvasX-7,'resizerY' : canvasY-7,'type': 'pencil'};
+            var pencilPath =[];
+            pencilPath.push(pencilled);
+            pencilLines[pencilLineCount] = pencilPath;
+            var ctx = currentElement.getContext("2d");
+            ctx.beginPath();
+            //addedShapes.push(pencilled);
+        }
         isResizerClicked(canvasX,canvasY);
         if(!isResizing) {
                 if(event.button == 2){
@@ -503,6 +574,24 @@ jQuery(document).ready(function() {
 
                             }
                         }
+                        jQuery.each(pencilLines,function(prop,val){
+                                ctx.beginPath();
+                                for (j = 1; j < val.length; j++) {
+                                    var obj = val[j];
+                                    var nextObj = val[j+1];
+                                    if (nextObj != undefined) {
+
+                                        ctx.strokeStyle = "Red";
+                                        ctx.moveTo(obj.rectX, obj.rectY);
+
+                                        ctx.lineTo(nextObj.rectX, nextObj.rectY);
+                                        ctx.stroke();
+
+                                    }
+                                }
+                                ctx.closePath();
+
+                        });
                     }
                 }
 
