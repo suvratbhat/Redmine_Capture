@@ -174,7 +174,7 @@ jQuery(document).ready(function() {
         }
     });
 
-    jQuery.ajax({
+    /*jQuery.ajax({
         type: 'get',
         url: redmine_url + '/users.json',
     }).done(function(response){
@@ -207,15 +207,17 @@ jQuery(document).ready(function() {
                 jQuery('#asign').append(option);
             }
         });
-    });
+    });*/
 
-    jQuery.ajax({
+   /* jQuery.ajax({
         type: 'get',
         url: redmine_url + '/custom_fields.json'
-    }).done(function(response){
-            if(response.custom_fields.length > 0) {
-                    var testphase = response.custom_fields[0];
-                    var resolution = response.custom_fields[1];
+    }).done(function(response){*/
+       var custom_fields = [{"id":1,"name":"Test Phase","customized_type":"issue","field_format":"list","regexp":"","is_filter":true,"searchable":true,"multiple":true,"default_value":"","visible":true,"possible_values":[{"value":"Unit Test"},{"value":"System Test"},{"value":"User Acceptance Test"},{"value":"System Integration"},{"value":"Production Verification"},{"value":"Production"}],"trackers":[{"id":1,"name":"Bug"},{"id":2,"name":"Feature"},{"id":3,"name":"Support"},{"id":4,"name":"Improvement"},{"id":5,"name":"Test Case"},{"id":7,"name":"Task"},{"id":8,"name":"Epic"},{"id":9,"name":"Story"},{"id":10,"name":"Technical Task"},{"id":11,"name":"Sub-task"}],"roles":[]},{"id":2,"name":"Resolution","customized_type":"issue","field_format":"list","regexp":"","is_filter":true,"searchable":true,"multiple":true,"default_value":"","visible":true,"possible_values":[{"value":"Fixed"},{"value":"Won\'t Fix"},{"value":"UnResolved"},{"value":"Incomplete"},{"value":"Cannot Reproduce"}],"trackers":[{"id":1,"name":"Bug"},{"id":2,"name":"Feature"},{"id":3,"name":"Support"},{"id":4,"name":"Improvement"},{"id":5,"name":"Test Case"},{"id":7,"name":"Task"},{"id":8,"name":"Epic"},{"id":9,"name":"Story"},{"id":10,"name":"Technical Task"},{"id":11,"name":"Sub-task"}],"roles":[]}];
+        //console.log(JSON.stringify(custom_fields));
+            if(custom_fields.length > 0) {
+                    var testphase = custom_fields[0];
+                    var resolution = custom_fields[1];
                     for(var i = 0; i<testphase.possible_values.length ; i++){
                         var option = document.createElement('option');
 
@@ -239,7 +241,7 @@ jQuery(document).ready(function() {
 
             }
             //jQuery('#priority').append(option);
-    });
+    //});
 
     jQuery('#update').bind("click",function(data) {
         clean_form();
@@ -975,7 +977,33 @@ function errorHandler(e) {
 
     console.log('Error: ' + msg);
 }
+jQuery('#project').change(function(){
+    var selectedProj = (jQuery('#project option:selected').val());
+    jQuery('#asign').empty();
+    jQuery.ajax({
+        type: 'get',
+        url: redmine_url + '/projects/'+selectedProj+'/memberships.json'
+    }).done(function(response){
+        for(var i = 0; i < response.memberships.length; i++){
+            if(response.memberships[i].user != undefined && response.memberships[i].user.name != 'Redmine Admin') {
+                var option = document.createElement('option');
+                option.text  = response.memberships[i].user.name ;
+                option.value = response.memberships[i].user.id;
 
+                jQuery('#asign').append(option);
+            }
+            else if(response.memberships[i].group != undefined){
+                var option = document.createElement('option');
+                option.text  = response.memberships[i].group.name ;
+                option.value = response.memberships[i].group.id;
+
+                jQuery('#asign').append(option);
+            }
+        }
+
+    });
+
+    });
 function populate_response() {
    // var issue = response.issue;
     jQuery('#project option[value='+fetchedIssue.project.id+']') .attr('selected','selected');
